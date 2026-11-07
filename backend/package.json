@@ -1,0 +1,25 @@
+{
+  "name": "sgca-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend del Sistema de Gestión de Certificados Académicos",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "node --import tsx --test"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "pg": "^8.23.1",
+    "swagger-ui-dist": "^5.34.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
