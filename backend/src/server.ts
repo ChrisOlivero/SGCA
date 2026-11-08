@@ -41,34 +41,43 @@ const swaggerAssets: Record<string, {
     }
 };
 
-const server = createServer(async (request, response) => {
-    const url = new URL(
-        request.url ?? "/",
-        `http://${request.headers.host ?? "localhost"}`
-    );
+// Centraliza la construcción de respuestas JSON.
+function responderJson(
+    response: import("node:http").ServerResponse,
+    status: number,
+    data: unknown
+): void {
+    response.writeHead(status, {
+        "Content-Type": "application/json; charset=utf-8"
+    });
 
-    if (request.method === "GET" && (
-        url.pathname === "/api-docs" ||
-        url.pathname === "/api-docs/"
-    )) {
+    response.end(JSON.stringify(data));
+}
+
+// Atiende la documentación y los recursos de Swagger.
+async function manejarSwagger(
+    request: import("node:http").IncomingMessage,
+    response: import("node:http").ServerResponse,
+    url: URL
+): Promise<boolean> {
+    if (
+        request.method === "GET" &&
+        (url.pathname === "/api-docs" || url.pathname === "/api-docs/")
+    ) {
         response.writeHead(200, {
             "Content-Type": "text/html; charset=utf-8"
         });
 
         response.end(swaggerHtml);
-        return;
+        return true;
     }
 
     if (
         request.method === "GET" &&
         url.pathname === "/api-docs/openapi.json"
     ) {
-        response.writeHead(200, {
-            "Content-Type": "application/json; charset=utf-8"
-        });
-
-        response.end(JSON.stringify(swaggerDocument));
-        return;
+        responderJson(response, 200, swaggerDocument);
+        return true;
     }
 
     const asset = swaggerAssets[url.pathname];
@@ -91,68 +100,101 @@ const server = createServer(async (request, response) => {
             response.end("No se pudo cargar un recurso de Swagger");
         }
 
-        return;
+        return true;
     }
 
-    if (url.pathname === "/health/db" && request.method === "GET") {
-        try {
-            const result = await pool.query(
-                "SELECT NOW() AS fecha_servidor"
-            );
+    return false;
+}
 
-            response.writeHead(200, {
-                "Content-Type": "application/json; charset=utf-8"
-            });
-
-            response.end(JSON.stringify({
-                mensaje: "Conexión con PostgreSQL exitosa",
-                estado: "OK",
-                fechaServidor: result.rows[0]?.fecha_servidor
-            }));
-        } catch (error) {
-            console.error(error);
-
-            response.writeHead(500, {
-                "Content-Type": "application/json; charset=utf-8"
-            });
-
-            response.end(JSON.stringify({
-                mensaje: "Error de conexión con PostgreSQL"
-            }));
-        }
-
-        return;
+// Comprueba la conexión con PostgreSQL.
+async function manejarHealthCheck(
+    request: import("node:http").IncomingMessage,
+    response: import("node:http").ServerResponse,
+    url: URL
+): Promise<boolean> {
+    if (
+        request.method !== "GET" ||
+        url.pathname !== "/health/db"
+    ) {
+        return false;
     }
 
     try {
-        const encontrada = await solicitudRoutes.manejar(
+        const result = await pool.query(
+            "SELECT NOW() AS fecha_servidor"
+        );
+
+        responderJson(response, 200, {
+            mensaje: "Conexión con PostgreSQL exitosa",
+            estado: "OK",
+            fechaServidor: result.rows[0]?.fecha_servidor
+        });
+    } catch (error) {
+        console.error(error);
+
+        responderJson(response, 500, {
+            mensaje: "Error de conexión con PostgreSQL"
+        });
+    }
+
+    return true;
+}
+
+// Delega el procesamiento de las rutas de la aplicación.
+async function manejarRutasApi(
+    request: import("node:http").IncomingMessage,
+    response: import("node:http").ServerResponse,
+    url: URL
+): Promise<void> {
+    const encontrada = await solicitudRoutes.manejar(
+        request,
+        response,
+        url
+    );
+
+    if (!encontrada) {
+        responderJson(response, 404, {
+            mensaje: "Ruta no encontrada"
+        });
+    }
+}
+
+// Coordina el procesamiento general de cada solicitud HTTP.
+const server = createServer(async (request, response) => {
+    const url = new URL(
+        request.url ?? "/",
+        `http://${request.headers.host ?? "localhost"}`
+    );
+
+    try {
+        const swaggerAtendido = await manejarSwagger(
             request,
             response,
             url
         );
 
-        if (encontrada) {
+        if (swaggerAtendido) {
             return;
         }
 
-        response.writeHead(404, {
-            "Content-Type": "application/json; charset=utf-8"
-        });
+        const healthCheckAtendido = await manejarHealthCheck(
+            request,
+            response,
+            url
+        );
 
-        response.end(JSON.stringify({
-            mensaje: "Ruta no encontrada"
-        }));
+        if (healthCheckAtendido) {
+            return;
+        }
+
+        await manejarRutasApi(request, response, url);
     } catch (error) {
         console.error(error);
 
         if (!response.headersSent) {
-            response.writeHead(500, {
-                "Content-Type": "application/json; charset=utf-8"
-            });
-
-            response.end(JSON.stringify({
+            responderJson(response, 500, {
                 mensaje: "Error interno del servidor"
-            }));
+            });
         }
     }
 });
