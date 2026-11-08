@@ -5,9 +5,15 @@ import type {
 } from "node:http";
 
 import { z } from "zod";
+
 import { SolicitudService } from "../services/solicitud.service.js";
 import type { CrearSolicitudDTO } from "../repositories/solicitud.repository.js";
 import { leerBodyJson } from "../utils/http-body.js";
+
+interface RespuestaHttp {
+    status: number;
+    data: unknown;
+}
 
 const crearSolicitudSchema = z.object({
     descripcion: z.string().max(500).optional(),
@@ -33,26 +39,31 @@ export class SolicitudController {
 
     private responder(
         response: ServerResponse,
-        status: number,
-        data: unknown
+        respuesta: RespuestaHttp
     ): void {
-        response.writeHead(status, {
+        response.writeHead(respuesta.status, {
             "Content-Type": "application/json; charset=utf-8"
         });
 
-        response.end(JSON.stringify(data));
+        response.end(JSON.stringify(respuesta.data));
     }
-    
+
     async listar(response: ServerResponse): Promise<void> {
         try {
             const solicitudes = await this.solicitudService.listar();
 
-            this.responder(response, 200, solicitudes);
+            this.responder(response, {
+                status: 200,
+                data: solicitudes
+            });
         } catch (error) {
             console.error(error);
 
-            this.responder(response, 500, {
-                mensaje: "Error al consultar las solicitudes"
+            this.responder(response, {
+                status: 500,
+                data: {
+                    mensaje: "Error al consultar las solicitudes"
+                }
             });
         }
     }
@@ -65,18 +76,27 @@ export class SolicitudController {
             const solicitud = await this.solicitudService.buscarPorId(id);
 
             if (!solicitud) {
-                this.responder(response, 404, {
-                    mensaje: "Solicitud no encontrada"
+                this.responder(response, {
+                    status: 404,
+                    data: {
+                        mensaje: "Solicitud no encontrada"
+                    }
                 });
                 return;
             }
 
-            this.responder(response, 200, solicitud);
+            this.responder(response, {
+                status: 200,
+                data: solicitud
+            });
         } catch (error) {
             console.error(error);
 
-            this.responder(response, 500, {
-                mensaje: "Error al consultar la solicitud"
+            this.responder(response, {
+                status: 500,
+                data: {
+                    mensaje: "Error al consultar la solicitud"
+                }
             });
         }
     }
@@ -90,9 +110,12 @@ export class SolicitudController {
             const validacion = crearSolicitudSchema.safeParse(body);
 
             if (!validacion.success) {
-                this.responder(response, 400, {
-                    mensaje: "Datos inválidos",
-                    errores: validacion.error.issues
+                this.responder(response, {
+                    status: 400,
+                    data: {
+                        mensaje: "Datos inválidos",
+                        errores: validacion.error.issues
+                    }
                 });
                 return;
             }
@@ -110,27 +133,41 @@ export class SolicitudController {
 
             const solicitud = await this.solicitudService.crear(datos);
 
-            this.responder(response, 201, solicitud);
+            this.responder(response, {
+                status: 201,
+                data: solicitud
+            });
         } catch (error) {
             console.error(error);
 
             if (error instanceof SyntaxError) {
-                this.responder(response, 400, {
-                    mensaje: "El cuerpo JSON no es válido"
+                this.responder(response, {
+                    status: 400,
+                    data: {
+                        mensaje: "El cuerpo JSON no es válido"
+                    }
                 });
                 return;
             }
 
-            if (error instanceof Error &&
-                error.message === "El estudiante no existe") {
-                this.responder(response, 404, {
-                    mensaje: error.message
+            if (
+                error instanceof Error &&
+                error.message === "El estudiante no existe"
+            ) {
+                this.responder(response, {
+                    status: 404,
+                    data: {
+                        mensaje: error.message
+                    }
                 });
                 return;
             }
 
-            this.responder(response, 500, {
-                mensaje: "Error al crear la solicitud"
+            this.responder(response, {
+                status: 500,
+                data: {
+                    mensaje: "Error al crear la solicitud"
+                }
             });
         }
     }
@@ -145,9 +182,12 @@ export class SolicitudController {
             const validacion = actualizarEstadoSchema.safeParse(body);
 
             if (!validacion.success) {
-                this.responder(response, 400, {
-                    mensaje: "Estado inválido",
-                    errores: validacion.error.issues
+                this.responder(response, {
+                    status: 400,
+                    data: {
+                        mensaje: "Estado inválido",
+                        errores: validacion.error.issues
+                    }
                 });
                 return;
             }
@@ -158,20 +198,29 @@ export class SolicitudController {
             );
 
             if (!solicitud) {
-                this.responder(response, 404, {
-                    mensaje: "Solicitud no encontrada"
+                this.responder(response, {
+                    status: 404,
+                    data: {
+                        mensaje: "Solicitud no encontrada"
+                    }
                 });
                 return;
             }
 
-            this.responder(response, 200, solicitud);
+            this.responder(response, {
+                status: 200,
+                data: solicitud
+            });
         } catch (error) {
             console.error(error);
 
-            this.responder(response, 400, {
-                mensaje: error instanceof Error
-                    ? error.message
-                    : "No se pudo actualizar el estado"
+            this.responder(response, {
+                status: 400,
+                data: {
+                    mensaje: error instanceof Error
+                        ? error.message
+                        : "No se pudo actualizar el estado"
+                }
             });
         }
     }
