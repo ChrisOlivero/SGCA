@@ -9,6 +9,7 @@ import type {
     ISolicitudRepository
 } from "../repositories/solicitud.repository.js";
 
+import { validarTransicionEstado } from "../domain/transiciones-solicitud.js";
 export class SolicitudService {
     constructor(
         private readonly solicitudRepository: ISolicitudRepository
@@ -46,24 +47,10 @@ export class SolicitudService {
             return null;
         }
 
-        const estadosPermitidos: Record<
-            EstadoSolicitud,
-            EstadoSolicitud[]
-        > = {
-            PENDIENTE: ["EN_REVISION", "RECHAZADA"],
-            EN_REVISION: ["APROBADA", "RECHAZADA"],
-            APROBADA: ["FINALIZADA"],
-            RECHAZADA: [],
-            FINALIZADA: []
-        };
-
-        const permitidos = estadosPermitidos[solicitud.estado];
-
-        if (!permitidos.includes(nuevoEstado)) {
-            throw new Error(
-                `No se puede cambiar de ${solicitud.estado} a ${nuevoEstado}`
-            );
-        }
+        validarTransicionEstado(
+            solicitud.estado,
+            nuevoEstado
+        );
 
         return this.solicitudRepository.actualizarEstado(
             id,
