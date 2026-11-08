@@ -62,26 +62,28 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     async actualizarEstado(
         id: number,
-        estado: EstadoSolicitud
+        estado: EstadoSolicitud,
+        estadoActualEsperado: EstadoSolicitud
     ): Promise<Solicitud | null> {
         const result = await pool.query<Solicitud>(
             `UPDATE solicitudes
              SET estado = $1,
                  fecha_actualizacion = CURRENT_TIMESTAMP
              WHERE id = $2
+               AND estado = $3
              RETURNING *`,
-            [estado, id]
+            [estado, id, estadoActualEsperado]
         );
 
         return result.rows[0] ?? null;
     }
 
     async existeEstudiante(id: number): Promise<boolean> {
-    const result = await pool.query(
-        "SELECT 1 FROM estudiantes WHERE id = $1",
-        [id]
-    );
+        const result = await pool.query(
+            "SELECT 1 FROM estudiantes WHERE id = $1",
+            [id]
+        );
 
-    return result.rowCount !== null && result.rowCount > 0;
+        return result.rowCount !== null && result.rowCount > 0;
     }
 }

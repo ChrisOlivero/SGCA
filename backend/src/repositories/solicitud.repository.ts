@@ -4,7 +4,6 @@ import type {
     EstadoSolicitud
 } from "../models/solicitud.js";
 
-
 export interface CrearSolicitudDTO {
     descripcion?: string;
     tipo: Solicitud["tipo"];
@@ -17,8 +16,10 @@ export interface ISolicitudRepository {
     buscarPorId(id: number): Promise<Solicitud | null>;
     listar(): Promise<Solicitud[]>;
     existeEstudiante(id: number): Promise<boolean>;
+
     actualizarEstado(
         id: number,
-        estado: EstadoSolicitud
+        estado: EstadoSolicitud,
+        estadoActualEsperado: EstadoSolicitud
     ): Promise<Solicitud | null>;
 }

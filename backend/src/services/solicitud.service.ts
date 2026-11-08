@@ -10,6 +10,21 @@ import type {
 } from "../repositories/solicitud.repository.js";
 
 import { validarTransicionEstado } from "../domain/transiciones-solicitud.js";
+
+export class EstudianteNoExisteError extends Error {
+    constructor() {
+        super("El estudiante no existe");
+        this.name = "EstudianteNoExisteError";
+    }
+}
+
+export class ConflictoActualizacionEstadoError extends Error {
+    constructor() {
+        super("La solicitud fue modificada por otra operación. Consulte su estado actual e intente nuevamente.");
+        this.name = "ConflictoActualizacionEstadoError";
+    }
+}
+
 export class SolicitudService {
     constructor(
         private readonly solicitudRepository: ISolicitudRepository
@@ -22,7 +37,7 @@ export class SolicitudService {
             );
 
         if (!estudianteExiste) {
-            throw new Error("El estudiante no existe");
+            throw new EstudianteNoExisteError();
         }
 
         return this.solicitudRepository.crear(datos);
@@ -52,9 +67,26 @@ export class SolicitudService {
             nuevoEstado
         );
 
-        return this.solicitudRepository.actualizarEstado(
-            id,
-            nuevoEstado
-        );
+        const solicitudActualizada =
+            await this.solicitudRepository.actualizarEstado(
+                id,
+                nuevoEstado,
+                solicitud.estado
+            );
+
+        if (solicitudActualizada) {
+            return solicitudActualizada;
+        }
+
+        // Si no se actualizó, verificamos si fue eliminada
+        // o modificada por otra operación.
+        const solicitudActual =
+            await this.solicitudRepository.buscarPorId(id);
+
+        if (!solicitudActual) {
+            return null;
+        }
+
+        throw new ConflictoActualizacionEstadoError();
     }
 }

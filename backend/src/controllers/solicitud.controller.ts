@@ -8,12 +8,19 @@ import { z } from "zod";
 
 import { SolicitudService } from "../services/solicitud.service.js";
 import type { CrearSolicitudDTO } from "../repositories/solicitud.repository.js";
-import { leerBodyJson } from "../utils/http-body.js";
+import {
+    leerBodyJson,
+    BodyDemasiadoGrandeError
+} from "../utils/http-body.js";
 
 import {
     TransicionEstadoInvalidaError
 } from "../domain/transiciones-solicitud.js";
 
+import {
+    EstudianteNoExisteError,
+    ConflictoActualizacionEstadoError
+} from "../services/solicitud.service.js";
 interface RespuestaHttp {
     status: number;
     data: unknown;
@@ -144,6 +151,16 @@ export class SolicitudController {
         } catch (error) {
             console.error(error);
 
+            if (error instanceof BodyDemasiadoGrandeError) {
+                this.responder(response, {
+                    status: 413,
+                    data: {
+                        mensaje: error.message
+                    }
+                });
+                return;
+            }
+
             if (error instanceof SyntaxError) {
                 this.responder(response, {
                     status: 400,
@@ -154,10 +171,7 @@ export class SolicitudController {
                 return;
             }
 
-            if (
-                error instanceof Error &&
-                error.message === "El estudiante no existe"
-            ) {
+            if (error instanceof EstudianteNoExisteError) {
                 this.responder(response, {
                     status: 404,
                     data: {
@@ -218,6 +232,16 @@ export class SolicitudController {
         } catch (error) {
             console.error(error);
 
+            if (error instanceof BodyDemasiadoGrandeError) {
+                this.responder(response, {
+                    status: 413,
+                    data: {
+                        mensaje: error.message
+                    }
+                });
+                return;
+            }
+
             if (error instanceof SyntaxError) {
                 this.responder(response, {
                     status: 400,
@@ -231,6 +255,16 @@ export class SolicitudController {
             if (error instanceof TransicionEstadoInvalidaError) {
                 this.responder(response, {
                     status: 400,
+                    data: {
+                        mensaje: error.message
+                    }
+                });
+                return;
+            }
+
+            if (error instanceof ConflictoActualizacionEstadoError) {
+                this.responder(response, {
+                    status: 409,
                     data: {
                         mensaje: error.message
                     }
