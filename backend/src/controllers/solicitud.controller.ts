@@ -7,6 +7,7 @@ import type {
 import { z } from "zod";
 import { SolicitudService } from "../services/solicitud.service.js";
 import type { CrearSolicitudDTO } from "../repositories/solicitud.repository.js";
+import { leerBodyJson } from "../utils/http-body.js";
 
 const crearSolicitudSchema = z.object({
     descripcion: z.string().max(500).optional(),
@@ -41,23 +42,7 @@ export class SolicitudController {
 
         response.end(JSON.stringify(data));
     }
-
-    private async leerBody(
-        request: IncomingMessage
-    ): Promise<unknown> {
-        let body = "";
-
-        for await (const chunk of request) {
-            body += chunk.toString();
-
-            if (body.length > 100_000) {
-                throw new Error("El cuerpo de la solicitud es demasiado grande");
-            }
-        }
-
-        return JSON.parse(body);
-    }
-
+    
     async listar(response: ServerResponse): Promise<void> {
         try {
             const solicitudes = await this.solicitudService.listar();
@@ -101,7 +86,7 @@ export class SolicitudController {
         response: ServerResponse
     ): Promise<void> {
         try {
-            const body = await this.leerBody(request);
+            const body = await leerBodyJson(request);
             const validacion = crearSolicitudSchema.safeParse(body);
 
             if (!validacion.success) {
@@ -156,7 +141,7 @@ export class SolicitudController {
         id: number
     ): Promise<void> {
         try {
-            const body = await this.leerBody(request);
+            const body = await leerBodyJson(request);
             const validacion = actualizarEstadoSchema.safeParse(body);
 
             if (!validacion.success) {
