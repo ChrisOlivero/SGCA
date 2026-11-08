@@ -1,6 +1,16 @@
 
 import type { EstadoSolicitud } from "../models/solicitud.js";
 
+export class TransicionEstadoInvalidaError extends Error {
+    constructor(estadoActual: EstadoSolicitud, nuevoEstado: EstadoSolicitud) {
+        super(
+            `No se puede cambiar de ${estadoActual} a ${nuevoEstado}`
+        );
+
+        this.name = "TransicionEstadoInvalidaError";
+    }
+}
+
 const estadosPermitidos: Record<
     EstadoSolicitud,
     EstadoSolicitud[]
@@ -19,8 +29,9 @@ export function validarTransicionEstado(
     const permitidos = estadosPermitidos[estadoActual];
 
     if (!permitidos.includes(nuevoEstado)) {
-        throw new Error(
-            `No se puede cambiar de ${estadoActual} a ${nuevoEstado}`
+        throw new TransicionEstadoInvalidaError(
+            estadoActual,
+            nuevoEstado
         );
     }
 }

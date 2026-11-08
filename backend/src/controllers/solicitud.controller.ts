@@ -10,6 +10,10 @@ import { SolicitudService } from "../services/solicitud.service.js";
 import type { CrearSolicitudDTO } from "../repositories/solicitud.repository.js";
 import { leerBodyJson } from "../utils/http-body.js";
 
+import {
+    TransicionEstadoInvalidaError
+} from "../domain/transiciones-solicitud.js";
+
 interface RespuestaHttp {
     status: number;
     data: unknown;
@@ -214,12 +218,30 @@ export class SolicitudController {
         } catch (error) {
             console.error(error);
 
+            if (error instanceof SyntaxError) {
+                this.responder(response, {
+                    status: 400,
+                    data: {
+                        mensaje: "El cuerpo JSON no es válido"
+                    }
+                });
+                return;
+            }
+
+            if (error instanceof TransicionEstadoInvalidaError) {
+                this.responder(response, {
+                    status: 400,
+                    data: {
+                        mensaje: error.message
+                    }
+                });
+                return;
+            }
+
             this.responder(response, {
-                status: 400,
+                status: 500,
                 data: {
-                    mensaje: error instanceof Error
-                        ? error.message
-                        : "No se pudo actualizar el estado"
+                    mensaje: "Error interno al actualizar el estado"
                 }
             });
         }
